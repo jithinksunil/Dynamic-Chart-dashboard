@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
+import { Role } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
@@ -78,7 +79,7 @@ export class AuthService {
   }: {
     req: Request;
     res: Response;
-  }): Promise<{ accessToken: string }> {
+  }): Promise<{ accessToken: string; role: Role }> {
     const token: string | undefined = req.cookies?.refresh_token as
       | string
       | undefined;
@@ -111,7 +112,7 @@ export class AuthService {
   }: {
     payload: JwtPayload;
     res: Response;
-  }) {
+  }): { accessToken: string; role: Role } {
     const accessToken = this.jwt.sign(payload, {
       secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: '15m',
@@ -129,6 +130,6 @@ export class AuthService {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return { accessToken };
+    return { accessToken, role: payload.role };
   }
 }
