@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches } from 'class-validator';
+import { passwordRegex, passwordValidationMessage } from '../../utility';
 
 export class SignInDto {
   @IsNotEmpty()
@@ -7,5 +8,8 @@ export class SignInDto {
 
   @IsNotEmpty()
   @IsString()
+  @Matches(passwordRegex, {
+    message: passwordValidationMessage,
+  })
   password: string;
 }

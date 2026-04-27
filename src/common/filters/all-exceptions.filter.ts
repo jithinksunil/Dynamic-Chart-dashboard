@@ -132,6 +132,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
           error: 'Bad Request',
           message: 'The change violates a required relation.',
         };
+      case 'P1010':
+        return {
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          error: 'Database Unavailable',
+          message: 'Database access denied. Check credentials and permissions.',
+        };
       default:
         return {
           statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
