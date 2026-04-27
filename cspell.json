@@ -1,0 +1,6 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": ["Prisma", "sonarjs", "statusCode", "bcryptjs", "bcrypt", "cookieparser", "httponly", "passthrough", "signin", "signup", "nestjs", "jwt"],
+  "ignorePaths": ["node_modules", "dist", "build", "coverage", "src/generated"]
+}
