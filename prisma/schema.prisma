@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
@@ -24,6 +22,12 @@ enum ColumnDataType {
   DATE_ISO
 }
 
+enum ChartType {
+  BAR
+  LINE
+  PIE
+}
+
 model User {
   id         String      @id @default(uuid())
   name       String
@@ -36,12 +40,26 @@ model User {
 }
 
 model CsvUpload {
-  id        String   @id @default(uuid())
+  id        String          @id @default(uuid())
   fileName  String
   data      Json
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  charts    ChartMetaData[]
+  user      User            @relation(fields: [userId], references: [id])
 
   @@map("csv_upload")
+}
+
+model ChartMetaData {
+  id          String    @id @default(uuid())
+  type        ChartType
+  xAxis       String
+  yAxis       String
+  name        String
+  csvUpload   CsvUpload @relation(fields: [csvUploadId], references: [id])
+  csvUploadId String
+  createdAt   DateTime  @default(now())
+
+  @@map("chart_meta_data")
 }
