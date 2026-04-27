@@ -6,15 +6,10 @@ import {
   HttpStatus,
   Param,
   Post,
-  Req,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { ChartsService } from './charts.service';
 import { BuildChartsDto } from './dto/build-charts.dto';
-
-interface AuthenticatedRequest extends Request {
-  user: { id: string; email: string; role: string };
-}
+import { UserId } from '../guards/user-id.decorator';
 
 @Controller('charts')
 export class ChartsController {
@@ -23,11 +18,11 @@ export class ChartsController {
   @Get(':csvUploadId')
   getCharts(
     @Param('csvUploadId') csvUploadId: string,
-    @Req() req: AuthenticatedRequest,
+    @UserId() userId: string,
   ): Promise<unknown> {
     return this.chartsService.getCharts({
       csvUploadId,
-      userId: req.user.id,
+      userId,
     });
   }
 
@@ -36,11 +31,11 @@ export class ChartsController {
   buildCharts(
     @Param('csvUploadId') csvUploadId: string,
     @Body() dto: BuildChartsDto,
-    @Req() req: AuthenticatedRequest,
+    @UserId() userId: string,
   ): Promise<unknown> {
     return this.chartsService.buildCharts({
       csvUploadId,
-      userId: req.user.id,
+      userId,
       charts: dto.charts,
     });
   }

@@ -4,20 +4,15 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
 import { CsvUploadService } from './csv-upload.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { Roles } from '../guards/roles.decorator';
-
-interface AuthenticatedRequest extends Request {
-  user: { id: string; email: string; role: string };
-}
+import { UserId } from '../guards/user-id.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('csv-upload')
@@ -28,10 +23,7 @@ export class CsvUploadController {
   @Roles('USER')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
-  upload(
-    @UploadedFile() file: Express.Multer.File,
-    @Req() req: AuthenticatedRequest,
-  ) {
+  upload(@UploadedFile() file: Express.Multer.File, @UserId() userId: string) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
@@ -48,7 +40,7 @@ export class CsvUploadController {
     return this.csvUploadService.upload({
       buffer: file.buffer,
       fileName: file.originalname,
-      userId: req.user.id,
+      userId,
     });
   }
 }
