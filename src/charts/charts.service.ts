@@ -85,7 +85,7 @@ export class ChartsService {
     csvUploadId: string;
     userId: string;
     chart: ChartConfigDto;
-  }): Promise<string> {
+  }): Promise<{ id: string }> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
     });
@@ -117,13 +117,13 @@ export class ChartsService {
         `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
       );
     }
-    const yAxisType = storedData[chartConfig.yAxis].type;
+    const xAxisType = storedData[chartConfig.xAxis].type;
     if (
-      yAxisType !== ColumnDataType.NUMBER &&
-      yAxisType !== ColumnDataType.DATE_ISO
+      xAxisType !== ColumnDataType.NUMBER &&
+      xAxisType !== ColumnDataType.DATE_ISO
     ) {
       throw new BadRequestException(
-        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number or an iso string`,
+        `Column "${chartConfig.xAxis}" has type "${xAxisType}" — xAxis must be a number or an iso string`,
       );
     }
 
@@ -138,7 +138,7 @@ export class ChartsService {
       select: { id: true },
     });
 
-    return savedRecord.id;
+    return { id: savedRecord.id };
   }
 
   async getCharts({
