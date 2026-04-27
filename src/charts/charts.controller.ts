@@ -19,7 +19,7 @@ export class ChartsController {
   getCharts(
     @Param('csvUploadId') csvUploadId: string,
     @UserId() userId: string,
-  ): Promise<unknown> {
+  ) {
     return this.chartsService.getCharts({
       csvUploadId,
       userId,
@@ -32,7 +32,7 @@ export class ChartsController {
     @Param('csvUploadId') csvUploadId: string,
     @Body() dto: BuildChartsDto,
     @UserId() userId: string,
-  ): Promise<unknown> {
+  ) {
     return this.chartsService.buildCharts({
       csvUploadId,
       userId,

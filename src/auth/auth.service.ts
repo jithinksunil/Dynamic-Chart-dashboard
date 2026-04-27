@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -54,6 +55,20 @@ export class AuthService {
       res,
       payload: { sub: user.id, email: user.email, role: user.role },
     });
+  }
+
+  async getMe({ userId }: { userId: string }): Promise<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 
   private issueTokens({

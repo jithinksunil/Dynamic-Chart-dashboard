@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -11,6 +12,7 @@ import { AuthService } from './auth.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import { Public } from '../guards/public.decorator';
+import { UserId } from '../guards/user-id.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -34,5 +36,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.authService.signIn({ dto, res });
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  getMe(@UserId() userId: string) {
+    return this.authService.getMe({ userId });
   }
 }
