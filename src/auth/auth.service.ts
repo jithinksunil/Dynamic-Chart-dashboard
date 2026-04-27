@@ -3,11 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
@@ -69,6 +70,39 @@ export class AuthService {
     });
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  async refresh({
+    req,
+    res,
+  }: {
+    req: Request;
+    res: Response;
+  }): Promise<{ accessToken: string }> {
+    const token: string | undefined = req.cookies?.refresh_token as
+      | string
+      | undefined;
+    if (!token) throw new UnauthorizedException('No refresh token provided');
+
+    let payload: JwtPayload;
+    try {
+      payload = this.jwt.verify<JwtPayload>(token, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, role: true },
+    });
+    if (!user) throw new UnauthorizedException('User no longer exists');
+
+    return this.issueTokens({
+      res,
+      payload: { sub: user.id, email: user.email, role: user.role },
+    });
   }
 
   private issueTokens({

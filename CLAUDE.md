@@ -144,3 +144,5 @@ bunx prisma studio           # Open Prisma Studio GUI
   ```
 
   This applies to plain functions, arrow functions assigned to variables, class methods, and async functions (`Promise<T>` not just `T`).
+
+  **Exception — NestJS controller methods**: Do not add explicit return types to controller methods. NestJS serializes the response at runtime and the return type adds no safety benefit here; omit it and let inference flow from the service.

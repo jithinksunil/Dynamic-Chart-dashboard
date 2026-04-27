@@ -5,9 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
@@ -24,7 +25,7 @@ export class AuthController {
   async signUp(
     @Body() dto: SignUpDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<{ accessToken: string }> {
     return this.authService.signUp({ dto, res });
   }
 
@@ -34,7 +35,7 @@ export class AuthController {
   async signIn(
     @Body() dto: SignInDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<{ accessToken: string }> {
     return this.authService.signIn({ dto, res });
   }
 
@@ -42,5 +43,15 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   getMe(@UserId() userId: string) {
     return this.authService.getMe({ userId });
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ accessToken: string }> {
+    return this.authService.refresh({ req, res });
   }
 }
