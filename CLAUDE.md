@@ -128,3 +128,19 @@ bunx prisma studio           # Open Prisma Studio GUI
   lines.forEach((line) => line.trim());
   headers.forEach((header, headerIndex) => { ... });
   ```
+
+- **Explicit return types**: Every function and method must declare an explicit return type. Do not rely on inference.
+
+  ```typescript
+  // Bad
+  function parseDate(raw: string) {
+    return new Date(raw);
+  }
+
+  // Good
+  function parseDate(raw: string): Date {
+    return new Date(raw);
+  }
+  ```
+
+  This applies to plain functions, arrow functions assigned to variables, class methods, and async functions (`Promise<T>` not just `T`).
