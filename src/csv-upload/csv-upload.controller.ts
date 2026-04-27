@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -15,12 +17,12 @@ import { Roles } from '../guards/roles.decorator';
 import { UserId } from '../guards/user-id.decorator';
 
 @UseGuards(JwtAuthGuard)
+@Roles('USER')
 @Controller('csv-upload')
 export class CsvUploadController {
   constructor(private readonly csvUploadService: CsvUploadService) {}
 
   @Post('/')
-  @Roles('USER')
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(FileInterceptor('file'))
   upload(@UploadedFile() file: Express.Multer.File, @UserId() userId: string) {
@@ -42,5 +44,15 @@ export class CsvUploadController {
       fileName: file.originalname,
       userId,
     });
+  }
+
+  @Get('/')
+  listUserCsvFiles(@UserId() userId: string) {
+    return this.csvUploadService.listUserCsvFiles({ userId });
+  }
+
+  @Get('/:id/chart-builder')
+  getChartBuilderInfo(@Param('id') id: string, @UserId() userId: string) {
+    return this.csvUploadService.getChartBuilderInfo({ id, userId });
   }
 }

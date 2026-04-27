@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const ColumnDataType = {
@@ -100,10 +104,45 @@ export class CsvUploadService {
     const columns = this.parse({ buffer });
     const data = toSerializable(columns);
 
-    await this.prisma.csvUpload.create({
+    const csvUpload = await this.prisma.csvUpload.create({
       data: { fileName, data, userId },
     });
 
+    return { csvUploadId: csvUpload.id };
+  }
+
+  async listUserCsvFiles({
+    userId,
+  }: {
+    userId: string;
+  }): Promise<{ id: string; fileName: string; createdAt: Date }[]> {
+    return this.prisma.csvUpload.findMany({
+      where: { userId },
+      select: { id: true, fileName: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getChartBuilderInfo({
+    id,
+    userId,
+  }: {
+    id: string;
+    userId: string;
+  }): Promise<{
+    availableXAxises: { columnName: string; type: ColumnDataType }[];
+    availableYAxises: { columnName: string; type: ColumnDataType }[];
+  }> {
+    const csvUpload = await this.prisma.csvUpload.findFirst({
+      where: { id, userId },
+      select: { data: true },
+    });
+
+    if (!csvUpload) {
+      throw new NotFoundException(`CSV upload ${id} not found`);
+    }
+
+    const columns = csvUpload.data as SerializableCsvColumns;
     const xAxisTypes = new Set<ColumnDataType>([
       ColumnDataType.NUMBER,
       ColumnDataType.DATE_ISO,
