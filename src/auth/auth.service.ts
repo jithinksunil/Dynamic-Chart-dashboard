@@ -1,10 +1,14 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import type { Response } from 'express';
-import { Role } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import type { JwtPayload } from './strategies/jwt.strategy';
 
@@ -16,23 +20,16 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async validateUser({ email, password }: { email: string; password: string }) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) return null;
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return null;
-    return { id: user.id, email: user.email, name: user.name, role: user.role };
-  }
-
   async signUp({ dto, res }: { dto: SignUpDto; res: Response }) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+      where: { email: normalizedEmail },
     });
     if (existing) throw new ConflictException('Email already in use');
 
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
-      data: { name: dto.name, email: dto.email, password: hashed },
+      data: { name: dto.name, email: normalizedEmail, password: hashed },
       select: { id: true, email: true, name: true, role: true },
     });
 
@@ -42,13 +39,17 @@ export class AuthService {
     });
   }
 
-  signIn({
-    user,
-    res,
-  }: {
-    user: { id: string; email: string; role: Role };
-    res: Response;
-  }) {
+  async signIn({ dto, res }: { dto: SignInDto; res: Response }) {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    if (!user)
+      throw new BadRequestException('No account found with that email');
+
+    const match = await bcrypt.compare(dto.password, user.password);
+    if (!match) throw new BadRequestException('Incorrect password');
+
     return this.issueTokens({
       res,
       payload: { sub: user.id, email: user.email, role: user.role },

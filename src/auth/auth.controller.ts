@@ -5,7 +5,6 @@ import {
   HttpStatus,
   Post,
   Res,
-  UnauthorizedException,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -34,11 +33,6 @@ export class AuthController {
     @Body() dto: SignInDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.authService.validateUser({
-      email: dto.email,
-      password: dto.password,
-    });
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-    return this.authService.signIn({ user, res });
+    return this.authService.signIn({ dto, res });
   }
 }
