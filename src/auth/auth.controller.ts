@@ -24,7 +24,7 @@ export class AuthController {
     @Body() dto: SignUpDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.signUp(dto, res);
+    return this.authService.signUp({ dto, res });
   }
 
   @Public()
@@ -34,8 +34,11 @@ export class AuthController {
     @Body() dto: SignInDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.authService.validateUser(dto.email, dto.password);
+    const user = await this.authService.validateUser({
+      email: dto.email,
+      password: dto.password,
+    });
     if (!user) throw new UnauthorizedException('Invalid credentials');
-    return this.authService.signIn(user, res);
+    return this.authService.signIn({ user, res });
   }
 }

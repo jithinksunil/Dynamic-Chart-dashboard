@@ -16,7 +16,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async validateUser({ email, password }: { email: string; password: string }) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return null;
     const match = await bcrypt.compare(password, user.password);
@@ -24,7 +24,7 @@ export class AuthService {
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }
 
-  async signUp(dto: SignUpDto, res: Response) {
+  async signUp({ dto, res }: { dto: SignUpDto; res: Response }) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -36,20 +36,32 @@ export class AuthService {
       select: { id: true, email: true, name: true, role: true },
     });
 
-    return this.issueTokens(
-      { sub: user.id, email: user.email, role: user.role },
+    return this.issueTokens({
       res,
-    );
+      payload: { sub: user.id, email: user.email, role: user.role },
+    });
   }
 
-  signIn(user: { id: string; email: string; role: Role }, res: Response) {
-    return this.issueTokens(
-      { sub: user.id, email: user.email, role: user.role },
+  signIn({
+    user,
+    res,
+  }: {
+    user: { id: string; email: string; role: Role };
+    res: Response;
+  }) {
+    return this.issueTokens({
       res,
-    );
+      payload: { sub: user.id, email: user.email, role: user.role },
+    });
   }
 
-  private issueTokens(payload: JwtPayload, res: Response) {
+  private issueTokens({
+    payload,
+    res,
+  }: {
+    payload: JwtPayload;
+    res: Response;
+  }) {
     const accessToken = this.jwt.sign(payload, {
       secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: '15m',
