@@ -18,12 +18,30 @@ enum Role {
   ADMIN
 }
 
+enum ColumnDataType {
+  TEXT
+  NUMBER
+  DATE_ISO
+}
+
 model User {
-  id       String @id @default(uuid())
-  name     String
-  email    String @unique
-  password String
-  role     Role   @default(USER)
+  id         String      @id @default(uuid())
+  name       String
+  email      String      @unique
+  password   String
+  role       Role        @default(USER)
+  csvUploads CsvUpload[]
 
   @@map("user")
+}
+
+model CsvUpload {
+  id        String   @id @default(uuid())
+  fileName  String
+  data      Json
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("csv_upload")
 }
