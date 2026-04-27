@@ -6,14 +6,25 @@ import {
   HttpStatus,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ChartsService } from './charts.service';
-import { BuildChartsDto } from './dto/build-charts.dto';
+import { ChartConfigDto } from './dto/build-charts.dto';
 import { UserId } from '../guards/user-id.decorator';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
-@Controller('charts')
+@UseGuards(JwtAuthGuard)
+@Controller('chart')
 export class ChartsController {
   constructor(private readonly chartsService: ChartsService) {}
+
+  @Get(':csvUploadId/meta')
+  getChartBuilderInfo(
+    @Param('csvUploadId') csvUploadId: string,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.getChartBuilderInfo({ csvUploadId, userId });
+  }
 
   @Get(':csvUploadId')
   getCharts(
@@ -26,17 +37,17 @@ export class ChartsController {
     });
   }
 
-  @Post(':csvUploadId')
+  @Post(':csvUploadId/build')
   @HttpCode(HttpStatus.CREATED)
   buildCharts(
     @Param('csvUploadId') csvUploadId: string,
-    @Body() dto: BuildChartsDto,
+    @Body() dto: ChartConfigDto,
     @UserId() userId: string,
   ) {
     return this.chartsService.buildCharts({
       csvUploadId,
       userId,
-      charts: dto.charts,
+      chart: dto,
     });
   }
 }

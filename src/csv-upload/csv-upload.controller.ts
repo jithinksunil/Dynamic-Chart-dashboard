@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -49,10 +48,5 @@ export class CsvUploadController {
   @Get('/')
   listUserCsvFiles(@UserId() userId: string) {
     return this.csvUploadService.listUserCsvFiles({ userId });
-  }
-
-  @Get('/:id/chart-builder')
-  getChartBuilderInfo(@Param('id') id: string, @UserId() userId: string) {
-    return this.csvUploadService.getChartBuilderInfo({ id, userId });
   }
 }

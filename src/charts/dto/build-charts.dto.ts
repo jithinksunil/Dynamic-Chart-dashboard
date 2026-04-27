@@ -1,11 +1,4 @@
-import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsEnum,
-  IsNotEmpty,
-  IsString,
-  ValidateNested,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 import { ChartType } from '../../generated/prisma/client';
 
 export class ChartConfigDto {
@@ -23,11 +16,4 @@ export class ChartConfigDto {
   @IsNotEmpty()
   @IsString()
   yAxis: string;
-}
-
-export class BuildChartsDto {
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ChartConfigDto)
-  charts: ChartConfigDto[];
 }

@@ -15,18 +15,6 @@ type SerializableCsvColumn = {
 };
 type StoredCsvData = Record<string, SerializableCsvColumn>;
 
-type ChartDataPoint = {
-  id: string;
-  name: string;
-  chartType: ChartType;
-  xAxis: string;
-  yAxis: string;
-  data: {
-    xValues: SerializableCsvValue[];
-    yValues: SerializableCsvValue[];
-  };
-};
-
 type ChartAxisDetail = {
   values: SerializableCsvValue[];
   dataType: ColumnDataType;
@@ -43,15 +31,61 @@ type ChartDetail = {
 export class ChartsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async buildCharts({
+  async getChartBuilderInfo({
     csvUploadId,
     userId,
-    charts,
   }: {
     csvUploadId: string;
     userId: string;
-    charts: ChartConfigDto[];
-  }): Promise<ChartDataPoint[]> {
+  }): Promise<{
+    availableXAxises: { columnName: string; type: ColumnDataType }[];
+    availableYAxises: { columnName: string; type: ColumnDataType }[];
+  }> {
+    const csvUpload = await this.prisma.csvUpload.findUnique({
+      where: { id: csvUploadId },
+      select: { userId: true, data: true },
+    });
+
+    if (!csvUpload) {
+      throw new NotFoundException(`CsvUpload ${csvUploadId} not found`);
+    }
+
+    if (csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this CSV upload');
+    }
+
+    const storedData = csvUpload.data as StoredCsvData;
+    const xAxisTypes = new Set<string>([
+      ColumnDataType.NUMBER,
+      ColumnDataType.DATE_ISO,
+    ]);
+
+    const availableXAxises = Object.entries(storedData)
+      .filter(([, column]) => xAxisTypes.has(column.type))
+      .map(([columnName, column]) => ({
+        columnName,
+        type: column.type as ColumnDataType,
+      }));
+
+    const availableYAxises = Object.entries(storedData).map(
+      ([columnName, column]) => ({
+        columnName,
+        type: column.type as ColumnDataType,
+      }),
+    );
+
+    return { availableXAxises, availableYAxises };
+  }
+
+  async buildCharts({
+    csvUploadId,
+    userId,
+    chart,
+  }: {
+    csvUploadId: string;
+    userId: string;
+    chart: ChartConfigDto;
+  }): Promise<string> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
     });
@@ -66,59 +100,45 @@ export class ChartsService {
 
     const storedData = csvUpload.data as StoredCsvData;
     const availableColumns = Object.keys(storedData);
+    const chartConfig = chart;
 
-    for (const chartConfig of charts) {
-      if (chartConfig.xAxis === chartConfig.yAxis) {
-        throw new BadRequestException(
-          `xAxis and yAxis must be different columns, both are "${chartConfig.xAxis}"`,
-        );
-      }
-      if (!availableColumns.includes(chartConfig.xAxis)) {
-        throw new BadRequestException(
-          `Column "${chartConfig.xAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
-        );
-      }
-      if (!availableColumns.includes(chartConfig.yAxis)) {
-        throw new BadRequestException(
-          `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
-        );
-      }
-      const yAxisType = storedData[chartConfig.yAxis].type;
-      if (
-        yAxisType !== ColumnDataType.NUMBER &&
-        yAxisType !== ColumnDataType.DATE_ISO
-      ) {
-        throw new BadRequestException(
-          `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number or an iso string`,
-        );
-      }
+    if (chartConfig.xAxis === chartConfig.yAxis) {
+      throw new BadRequestException(
+        `xAxis and yAxis must be different columns, both are "${chartConfig.xAxis}"`,
+      );
+    }
+    if (!availableColumns.includes(chartConfig.xAxis)) {
+      throw new BadRequestException(
+        `Column "${chartConfig.xAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+      );
+    }
+    if (!availableColumns.includes(chartConfig.yAxis)) {
+      throw new BadRequestException(
+        `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+      );
+    }
+    const yAxisType = storedData[chartConfig.yAxis].type;
+    if (
+      yAxisType !== ColumnDataType.NUMBER &&
+      yAxisType !== ColumnDataType.DATE_ISO
+    ) {
+      throw new BadRequestException(
+        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number or an iso string`,
+      );
     }
 
-    const savedRecords = await this.prisma.$transaction(
-      charts.map((chartConfig) =>
-        this.prisma.chartMetaData.create({
-          data: {
-            name: chartConfig.name,
-            type: chartConfig.chartType,
-            xAxis: chartConfig.xAxis,
-            yAxis: chartConfig.yAxis,
-            csvUploadId,
-          },
-        }),
-      ),
-    );
-
-    return savedRecords.map((record) => ({
-      id: record.id,
-      name: record.name,
-      chartType: record.type,
-      xAxis: record.xAxis,
-      yAxis: record.yAxis,
+    const savedRecord = await this.prisma.chartMetaData.create({
       data: {
-        xValues: storedData[record.xAxis].values,
-        yValues: storedData[record.yAxis].values,
+        name: chartConfig.name,
+        type: chartConfig.chartType,
+        xAxis: chartConfig.xAxis,
+        yAxis: chartConfig.yAxis,
+        csvUploadId,
       },
-    }));
+      select: { id: true },
+    });
+
+    return savedRecord.id;
   }
 
   async getCharts({
@@ -142,6 +162,9 @@ export class ChartsService {
     }
 
     const storedData = csvUpload.data as StoredCsvData;
+    if (csvUpload.charts.length === 0) {
+      return [];
+    }
 
     return csvUpload.charts.map((chart) => ({
       name: chart.name,

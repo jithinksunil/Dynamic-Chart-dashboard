@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const ColumnDataType = {
@@ -121,42 +117,6 @@ export class CsvUploadService {
       select: { id: true, fileName: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
-  }
-
-  async getChartBuilderInfo({
-    id,
-    userId,
-  }: {
-    id: string;
-    userId: string;
-  }): Promise<{
-    availableXAxises: { columnName: string; type: ColumnDataType }[];
-    availableYAxises: { columnName: string; type: ColumnDataType }[];
-  }> {
-    const csvUpload = await this.prisma.csvUpload.findFirst({
-      where: { id, userId },
-      select: { data: true },
-    });
-
-    if (!csvUpload) {
-      throw new NotFoundException(`CSV upload ${id} not found`);
-    }
-
-    const columns = csvUpload.data as SerializableCsvColumns;
-    const xAxisTypes = new Set<ColumnDataType>([
-      ColumnDataType.NUMBER,
-      ColumnDataType.DATE_ISO,
-    ]);
-
-    const availableXAxises = Object.entries(columns)
-      .filter(([, column]) => xAxisTypes.has(column.type))
-      .map(([columnName, column]) => ({ columnName, type: column.type }));
-
-    const availableYAxises = Object.entries(columns).map(
-      ([columnName, column]) => ({ columnName, type: column.type }),
-    );
-
-    return { availableXAxises, availableYAxises };
   }
 
   private parse({ buffer }: { buffer: Buffer }): CsvColumns {
