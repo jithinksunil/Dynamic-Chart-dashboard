@@ -91,6 +91,10 @@ bunx prisma studio           # Open Prisma Studio GUI
 
 `DATABASE_URL` must be set in `.env` (PostgreSQL connection string).
 
+## Session Rules
+
+- **End of session**: Always run `bun run check` before ending a session. Fix any errors it reports before stopping.
+
 ## Code Conventions
 
 - ESLint enforces **camelCase** variables/functions and **PascalCase** types/classes (see `eslint.config.mjs`).
