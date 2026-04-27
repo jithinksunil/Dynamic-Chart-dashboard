@@ -110,3 +110,17 @@ bunx prisma studio           # Open Prisma Studio GUI
   ```
 
   Define a named interface or type for the parameter object when it is used in more than one place.
+
+- **No single-letter variables**: Variable, parameter, and property names must be descriptive — never a single character. This applies everywhere: loop indices, callbacks, destructured values, type parameters, etc.
+
+  ```typescript
+  // Bad
+  const d = new Date(raw);
+  lines.forEach((l) => l.trim());
+  headers.forEach((h, j) => { ... });
+
+  // Good
+  const parsedDate = new Date(raw);
+  lines.forEach((line) => line.trim());
+  headers.forEach((header, headerIndex) => { ... });
+  ```
