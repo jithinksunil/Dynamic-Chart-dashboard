@@ -319,6 +319,7 @@ export class ChartsService {
         type: true,
         xAxis: true,
         yAxis: true,
+        openAiFileId: true,
         csvUpload: { select: { userId: true, data: true } },
       },
     });
@@ -331,18 +332,39 @@ export class ChartsService {
       throw new ForbiddenException('You do not have access to this chart');
     }
 
-    const storedData = chart.csvUpload.data as StoredCsvData;
-    const xValues = storedData[chart.xAxis]?.values ?? [];
-    const yValues = storedData[chart.yAxis]?.values ?? [];
-    const chartDataPoints = xValues.map((xValue, index) => ({
-      [chart.xAxis]: xValue,
-      [chart.yAxis]: yValues[index],
-    }));
+    const rawOpenAiFileId: string | null = chart.openAiFileId;
+    const openAiFileId: string = await (async (): Promise<string> => {
+      if (rawOpenAiFileId) return rawOpenAiFileId;
+
+      const storedData = chart.csvUpload.data as StoredCsvData;
+      const xValues = storedData[chart.xAxis]?.values ?? [];
+      const yValues = storedData[chart.yAxis]?.values ?? [];
+      const chartDataPoints = xValues.map((xValue, xIndex) => ({
+        [chart.xAxis]: xValue,
+        [chart.yAxis]: yValues[xIndex],
+      }));
+
+      const jsonBytes = Buffer.from(JSON.stringify(chartDataPoints));
+      const jsonFile = new File([jsonBytes], 'chart_data.json', {
+        type: 'application/json',
+      });
+      const uploadedFile = await this.openai.files.create({
+        file: jsonFile,
+        purpose: 'assistants',
+      });
+
+      await this.prisma.chartMetaData.update({
+        where: { id: chartMetaDataId },
+        data: { openAiFileId: uploadedFile.id },
+      });
+
+      return uploadedFile.id;
+    })();
 
     const systemPrompt = [
       `You are a data analyst assistant. The user is viewing a ${chart.type} chart.`,
       `X-axis: "${chart.xAxis}", Y-axis: "${chart.yAxis}".`,
-      `Chart data: ${JSON.stringify(chartDataPoints)}`,
+      'The chart data is provided as an attached JSON file.',
       'Answer questions about this data concisely.',
     ].join('\n');
 
@@ -363,7 +385,13 @@ export class ChartsService {
             content: message.content,
           }),
         ),
-        { role: 'user', content },
+        {
+          role: 'user',
+          content: [
+            { type: 'input_file', file_id: openAiFileId },
+            { type: 'input_text', text: content },
+          ],
+        },
       ],
     });
 

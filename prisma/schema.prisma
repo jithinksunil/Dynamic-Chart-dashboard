@@ -54,15 +54,16 @@ model CsvUpload {
 }
 
 model ChartMetaData {
-  id          String        @id @default(uuid())
-  type        ChartType
-  xAxis       String
-  yAxis       String
-  name        String
-  csvUpload   CsvUpload     @relation(fields: [csvUploadId], references: [id])
-  csvUploadId String
-  Chat        ChatMessage[]
-  createdAt   DateTime      @default(now())
+  id           String        @id @default(uuid())
+  type         ChartType
+  xAxis        String
+  yAxis        String
+  name         String
+  csvUpload    CsvUpload     @relation(fields: [csvUploadId], references: [id])
+  csvUploadId  String
+  Chat         ChatMessage[]
+  createdAt    DateTime      @default(now())
+  openAiFileId String?
 
   @@index([csvUploadId, createdAt])
   @@map("chart_meta_data")
