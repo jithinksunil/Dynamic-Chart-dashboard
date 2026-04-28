@@ -366,6 +366,10 @@ export class ChartsService {
       `X-axis: "${chart.xAxis}", Y-axis: "${chart.yAxis}".`,
       'The chart data is provided as an attached JSON file.',
       'Answer questions about this data concisely.',
+      'Always respond using valid HTML markup.',
+      'Use tags like <p>, <ul>, <li>, <ol>, <strong>, <em>, <table>, <tr>, <th>, <td>, <h3>, <h4> where appropriate.',
+      'Do not wrap your response in <html>, <head>, or <body> tags — return only the inner content fragment.',
+      'Do not include markdown, only HTML.',
     ].join('\n');
 
     const history = await this.prisma.chatMessage.findMany({
