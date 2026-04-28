@@ -55,4 +55,10 @@ export class AuthController {
   ): Promise<{ accessToken: string; role: Role }> {
     return this.authService.refresh({ req, res });
   }
+
+  @Post('sign-out')
+  @HttpCode(HttpStatus.OK)
+  signOut(@Res({ passthrough: true }) res: Response): { message: string } {
+    return this.authService.signOut({ res });
+  }
 }

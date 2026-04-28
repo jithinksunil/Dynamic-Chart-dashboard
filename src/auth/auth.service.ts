@@ -106,6 +106,15 @@ export class AuthService {
     });
   }
 
+  signOut({ res }: { res: Response }): { message: string } {
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+    return { message: 'Logged out successfully' };
+  }
+
   private issueTokens({
     payload,
     res,
