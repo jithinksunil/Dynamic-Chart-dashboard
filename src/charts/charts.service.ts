@@ -170,4 +170,80 @@ export class ChartsService {
       };
     });
   }
+
+  async updateChartMetadata({
+    csvUploadId,
+    chartMetaDataId,
+    userId,
+    chartConfig,
+  }: {
+    csvUploadId: string;
+    chartMetaDataId: string;
+    userId: string;
+    chartConfig: ChartConfigDto;
+  }): Promise<{ id: string }> {
+    const csvUpload = await this.prisma.csvUpload.findUnique({
+      where: { id: csvUploadId },
+    });
+
+    if (!csvUpload) {
+      throw new NotFoundException(`CsvUpload ${csvUploadId} not found`);
+    }
+
+    if (csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this CSV upload');
+    }
+
+    const chartMetaData = await this.prisma.chartMetaData.findUnique({
+      where: { id: chartMetaDataId },
+    });
+
+    if (!chartMetaData) {
+      throw new NotFoundException(`ChartMetaData ${chartMetaDataId} not found`);
+    }
+
+    if (chartMetaData.csvUploadId !== csvUploadId) {
+      throw new ForbiddenException(
+        'ChartMetaData does not belong to this CSV upload',
+      );
+    }
+
+    const storedData = csvUpload.data as StoredCsvData;
+    const availableColumns = Object.keys(storedData);
+
+    if (chartConfig.xAxis === chartConfig.yAxis) {
+      throw new BadRequestException(
+        `xAxis and yAxis must be different columns, both are "${chartConfig.xAxis}"`,
+      );
+    }
+    if (!availableColumns.includes(chartConfig.xAxis)) {
+      throw new BadRequestException(
+        `Column "${chartConfig.xAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+      );
+    }
+    if (!availableColumns.includes(chartConfig.yAxis)) {
+      throw new BadRequestException(
+        `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+      );
+    }
+    const yAxisType = storedData[chartConfig.yAxis].type;
+    if (yAxisType !== ColumnDataType.NUMBER) {
+      throw new BadRequestException(
+        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number`,
+      );
+    }
+
+    const updatedRecord = await this.prisma.chartMetaData.update({
+      where: { id: chartMetaDataId },
+      data: {
+        name: chartConfig.name,
+        type: chartConfig.chartType,
+        xAxis: chartConfig.xAxis,
+        yAxis: chartConfig.yAxis,
+      },
+      select: { id: true },
+    });
+
+    return { id: updatedRecord.id };
+  }
 }

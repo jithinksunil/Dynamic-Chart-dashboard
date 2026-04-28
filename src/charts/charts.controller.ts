@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -12,8 +13,13 @@ import { ChartsService } from './charts.service';
 import { ChartConfigDto } from './dto/build-charts.dto';
 import { UserId } from '../guards/user-id.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../guards/roles.decorator';
+import { Role } from '../generated/prisma/enums';
 
 @UseGuards(JwtAuthGuard)
+@UseGuards(RolesGuard)
+@Roles(Role.USER)
 @Controller('chart')
 export class ChartsController {
   constructor(private readonly chartsService: ChartsService) {}
@@ -46,6 +52,22 @@ export class ChartsController {
   ) {
     return this.chartsService.buildCharts({
       csvUploadId,
+      userId,
+      chartConfig: dto,
+    });
+  }
+
+  @Patch(':csvUploadId/chart-meta/:chartMetaDataId')
+  @HttpCode(HttpStatus.OK)
+  updateChartMetadata(
+    @Param('csvUploadId') csvUploadId: string,
+    @Param('chartMetaDataId') chartMetaDataId: string,
+    @Body() dto: ChartConfigDto,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.updateChartMetadata({
+      csvUploadId,
+      chartMetaDataId,
       userId,
       chartConfig: dto,
     });
