@@ -16,6 +16,7 @@ type SerializableCsvColumn = {
 type StoredCsvData = Record<string, SerializableCsvColumn>;
 
 type ChartDetail = {
+  id: string;
   name: string;
   chartType: ChartType;
   xAxis: string;
@@ -159,6 +160,7 @@ export class ChartsService {
       const yAxisValues = storedData[chart.yAxis].values;
 
       return {
+        id: chart.id,
         name: chart.name,
         chartType: chart.type,
         xAxis: chart.xAxis,

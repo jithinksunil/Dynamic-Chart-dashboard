@@ -13,13 +13,8 @@ import { ChartsService } from './charts.service';
 import { ChartConfigDto } from './dto/build-charts.dto';
 import { UserId } from '../guards/user-id.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RolesGuard } from '../guards/roles.guard';
-import { Roles } from '../guards/roles.decorator';
-import { Role } from '../generated/prisma/enums';
 
 @UseGuards(JwtAuthGuard)
-@UseGuards(RolesGuard)
-@Roles(Role.USER)
 @Controller('chart')
 export class ChartsController {
   constructor(private readonly chartsService: ChartsService) {}
