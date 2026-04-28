@@ -51,10 +51,6 @@ export class ChartsService {
     }
 
     const storedData = csvUpload.data as StoredCsvData;
-    const yAxisTypes = new Set<string>([
-      ColumnDataType.NUMBER,
-      ColumnDataType.DATE_ISO,
-    ]);
 
     const availableXAxises = Object.entries(storedData).map(
       ([columnName, column]) => ({
@@ -64,7 +60,7 @@ export class ChartsService {
     );
 
     const availableYAxises = Object.entries(storedData)
-      .filter(([, column]) => yAxisTypes.has(column.type))
+      .filter(([, column]) => ColumnDataType.NUMBER === column.type)
       .map(([columnName, column]) => ({
         columnName,
         type: column.type as ColumnDataType,
@@ -76,11 +72,11 @@ export class ChartsService {
   async buildCharts({
     csvUploadId,
     userId,
-    chart,
+    chartConfig,
   }: {
     csvUploadId: string;
     userId: string;
-    chart: ChartConfigDto;
+    chartConfig: ChartConfigDto;
   }): Promise<{ id: string }> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
@@ -96,7 +92,6 @@ export class ChartsService {
 
     const storedData = csvUpload.data as StoredCsvData;
     const availableColumns = Object.keys(storedData);
-    const chartConfig = chart;
 
     if (chartConfig.xAxis === chartConfig.yAxis) {
       throw new BadRequestException(
@@ -114,12 +109,9 @@ export class ChartsService {
       );
     }
     const yAxisType = storedData[chartConfig.yAxis].type;
-    if (
-      yAxisType !== ColumnDataType.NUMBER &&
-      yAxisType !== ColumnDataType.DATE_ISO
-    ) {
+    if (yAxisType !== ColumnDataType.NUMBER) {
       throw new BadRequestException(
-        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number or an iso string`,
+        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number`,
       );
     }
 

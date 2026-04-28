@@ -26,7 +26,7 @@ export class ChartsController {
     return this.chartsService.getChartBuilderInfo({ csvUploadId, userId });
   }
 
-  @Get(':csvUploadId')
+  @Get(':csvUploadId/values')
   getCharts(
     @Param('csvUploadId') csvUploadId: string,
     @UserId() userId: string,
@@ -47,7 +47,7 @@ export class ChartsController {
     return this.chartsService.buildCharts({
       csvUploadId,
       userId,
-      chart: dto,
+      chartConfig: dto,
     });
   }
 }
