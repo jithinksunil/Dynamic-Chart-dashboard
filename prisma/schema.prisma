@@ -14,6 +14,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  AGENT
 }
 
 enum ColumnDataType {
@@ -48,18 +49,33 @@ model CsvUpload {
   charts    ChartMetaData[]
   user      User            @relation(fields: [userId], references: [id])
 
+  @@index([userId, createdAt])
   @@map("csv_upload")
 }
 
 model ChartMetaData {
-  id          String    @id @default(uuid())
+  id          String        @id @default(uuid())
   type        ChartType
   xAxis       String
   yAxis       String
   name        String
-  csvUpload   CsvUpload @relation(fields: [csvUploadId], references: [id])
+  csvUpload   CsvUpload     @relation(fields: [csvUploadId], references: [id])
   csvUploadId String
-  createdAt   DateTime  @default(now())
+  Chat        ChatMessage[]
+  createdAt   DateTime      @default(now())
 
+  @@index([csvUploadId, createdAt])
   @@map("chart_meta_data")
+}
+
+model ChatMessage {
+  id              String        @id @default(uuid())
+  content         String
+  role            Role
+  chartMetaData   ChartMetaData @relation(fields: [chartMetaDataId], references: [id])
+  chartMetaDataId String
+  createdAt       DateTime      @default(now())
+
+  @@index([chartMetaDataId, createdAt])
+  @@map("chat_message")
 }

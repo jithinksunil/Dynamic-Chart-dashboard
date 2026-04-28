@@ -2,11 +2,16 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { ChartType, ColumnDataType } from '../generated/prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { ChartType, ColumnDataType, Role } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ChartConfigDto } from './dto/build-charts.dto';
+import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod.mjs';
+import { z } from 'zod';
 
 type SerializableCsvValue = string | number;
 type SerializableCsvColumn = {
@@ -24,9 +29,26 @@ type ChartDetail = {
   data: Array<Record<string, SerializableCsvValue>>;
 };
 
+type ChatMessageResponse = {
+  role: Role;
+  content: string;
+  createdAt: string;
+};
+
+const agentResponseSchema = z.object({ content: z.string() });
+
 @Injectable()
 export class ChartsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly openai: OpenAI;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    this.openai = new OpenAI({
+      apiKey: this.configService.getOrThrow<string>('OPENAI_API_KEY'),
+    });
+  }
 
   async getChartBuilderInfo({
     csvUploadId,
@@ -247,5 +269,129 @@ export class ChartsService {
     });
 
     return { id: updatedRecord.id };
+  }
+
+  async getChatMessages({
+    chartMetaDataId,
+    userId,
+  }: {
+    chartMetaDataId: string;
+    userId: string;
+  }): Promise<ChatMessageResponse[]> {
+    const chart = await this.prisma.chartMetaData.findUnique({
+      where: { id: chartMetaDataId },
+      select: { csvUpload: { select: { userId: true } } },
+    });
+
+    if (!chart) {
+      throw new NotFoundException(`Chart ${chartMetaDataId} not found`);
+    }
+
+    if (chart.csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this chart');
+    }
+
+    const messages = await this.prisma.chatMessage.findMany({
+      where: { chartMetaDataId },
+      orderBy: { createdAt: 'desc' },
+      select: { role: true, content: true, createdAt: true },
+    });
+
+    return messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+    }));
+  }
+
+  async sendChatMessage({
+    chartMetaDataId,
+    userId,
+    content,
+  }: {
+    chartMetaDataId: string;
+    userId: string;
+    content: string;
+  }): Promise<ChatMessageResponse> {
+    const chart = await this.prisma.chartMetaData.findUnique({
+      where: { id: chartMetaDataId },
+      select: {
+        type: true,
+        xAxis: true,
+        yAxis: true,
+        csvUpload: { select: { userId: true, data: true } },
+      },
+    });
+
+    if (!chart) {
+      throw new NotFoundException(`Chart ${chartMetaDataId} not found`);
+    }
+
+    if (chart.csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this chart');
+    }
+
+    const storedData = chart.csvUpload.data as StoredCsvData;
+    const xValues = storedData[chart.xAxis]?.values ?? [];
+    const yValues = storedData[chart.yAxis]?.values ?? [];
+    const chartDataPoints = xValues.map((xValue, index) => ({
+      [chart.xAxis]: xValue,
+      [chart.yAxis]: yValues[index],
+    }));
+
+    const systemPrompt = [
+      `You are a data analyst assistant. The user is viewing a ${chart.type} chart.`,
+      `X-axis: "${chart.xAxis}", Y-axis: "${chart.yAxis}".`,
+      `Chart data: ${JSON.stringify(chartDataPoints)}`,
+      'Answer questions about this data concisely.',
+    ].join('\n');
+
+    const history = await this.prisma.chatMessage.findMany({
+      where: { chartMetaDataId },
+      orderBy: { createdAt: 'asc' },
+      select: { role: true, content: true },
+    });
+
+    const response = await this.openai.responses.create({
+      model: 'gpt-4o-mini',
+      text: { format: zodTextFormat(agentResponseSchema, 'agent_response') },
+      input: [
+        { role: 'system', content: systemPrompt },
+        ...history.map(
+          (message): { role: 'user' | 'assistant'; content: string } => ({
+            role: message.role === Role.USER ? 'user' : 'assistant',
+            content: message.content,
+          }),
+        ),
+        { role: 'user', content },
+      ],
+    });
+
+    const parsed = agentResponseSchema.safeParse(
+      JSON.parse(response.output_text),
+    );
+    if (!parsed.success) {
+      throw new InternalServerErrorException('No response from AI agent');
+    }
+
+    const [, agentMessage] = await this.prisma.$transaction([
+      this.prisma.chatMessage.create({
+        data: { content, role: Role.USER, chartMetaDataId },
+      }),
+      this.prisma.chatMessage.create({
+        data: {
+          content: parsed.data.content,
+          role: Role.AGENT,
+          chartMetaDataId,
+        },
+        select: { role: true, content: true, createdAt: true },
+      }),
+    ]);
+
+    return {
+      role: agentMessage.role,
+      content: agentMessage.content,
+      createdAt: agentMessage.createdAt.toISOString(),
+    };
   }
 }

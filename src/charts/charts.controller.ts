@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ChartsService } from './charts.service';
 import { ChartConfigDto } from './dto/build-charts.dto';
+import { SendChatMessageDto } from './dto/send-chat-message.dto';
 import { UserId } from '../guards/user-id.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
@@ -66,5 +67,27 @@ export class ChartsController {
       userId,
       chartConfig: dto,
     });
+  }
+
+  @Post(':chartMetaDataId/chat')
+  @HttpCode(HttpStatus.CREATED)
+  sendChatMessage(
+    @Param('chartMetaDataId') chartMetaDataId: string,
+    @Body() dto: SendChatMessageDto,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.sendChatMessage({
+      chartMetaDataId,
+      userId,
+      content: dto.content,
+    });
+  }
+
+  @Get(':chartMetaDataId/chat')
+  getChatMessages(
+    @Param('chartMetaDataId') chartMetaDataId: string,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.getChatMessages({ chartMetaDataId, userId });
   }
 }

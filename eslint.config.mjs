@@ -79,6 +79,10 @@ export default tseslint.config(
           selector: 'objectLiteralProperty',
           format: null,
         },
+        {
+          selector: 'import',
+          format: ['camelCase', 'PascalCase'],
+        },
       ],
     },
   },
