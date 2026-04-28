@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SignInDto } from './dto/sign-in.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 import type { JwtPayload } from './strategies/jwt.strategy';
+import { REFRESH_TOKEN_COOKIE } from '../utility';
 
 @Injectable()
 export class AuthService {
@@ -107,7 +108,7 @@ export class AuthService {
   }
 
   signOut({ res }: { res: Response }): { message: string } {
-    res.clearCookie('refresh_token', {
+    res.clearCookie(REFRESH_TOKEN_COOKIE, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -132,7 +133,7 @@ export class AuthService {
       expiresIn: '7d',
     });
 
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
