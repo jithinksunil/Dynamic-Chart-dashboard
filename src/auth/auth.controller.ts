@@ -7,6 +7,7 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -15,6 +16,7 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { Role } from '../generated/prisma/client';
 import { Public } from '../guards/public.decorator';
 import { UserId } from '../guards/user-id.decorator';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -41,6 +43,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   getMe(@UserId() userId: string) {
     return this.authService.getMe({ userId });
