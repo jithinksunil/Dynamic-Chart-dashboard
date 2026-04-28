@@ -15,16 +15,12 @@ type SerializableCsvColumn = {
 };
 type StoredCsvData = Record<string, SerializableCsvColumn>;
 
-type ChartAxisDetail = {
-  values: SerializableCsvValue[];
-  dataType: ColumnDataType;
-};
-
 type ChartDetail = {
-  xAxis: ChartAxisDetail;
-  yAxis: ChartAxisDetail;
   name: string;
   chartType: ChartType;
+  xAxis: string;
+  yAxis: string;
+  data: Array<Record<string, SerializableCsvValue>>;
 };
 
 @Injectable()
@@ -55,24 +51,24 @@ export class ChartsService {
     }
 
     const storedData = csvUpload.data as StoredCsvData;
-    const xAxisTypes = new Set<string>([
+    const yAxisTypes = new Set<string>([
       ColumnDataType.NUMBER,
       ColumnDataType.DATE_ISO,
     ]);
 
-    const availableXAxises = Object.entries(storedData)
-      .filter(([, column]) => xAxisTypes.has(column.type))
-      .map(([columnName, column]) => ({
-        columnName,
-        type: column.type as ColumnDataType,
-      }));
-
-    const availableYAxises = Object.entries(storedData).map(
+    const availableXAxises = Object.entries(storedData).map(
       ([columnName, column]) => ({
         columnName,
         type: column.type as ColumnDataType,
       }),
     );
+
+    const availableYAxises = Object.entries(storedData)
+      .filter(([, column]) => yAxisTypes.has(column.type))
+      .map(([columnName, column]) => ({
+        columnName,
+        type: column.type as ColumnDataType,
+      }));
 
     return { availableXAxises, availableYAxises };
   }
@@ -117,13 +113,13 @@ export class ChartsService {
         `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
       );
     }
-    const xAxisType = storedData[chartConfig.xAxis].type;
+    const yAxisType = storedData[chartConfig.yAxis].type;
     if (
-      xAxisType !== ColumnDataType.NUMBER &&
-      xAxisType !== ColumnDataType.DATE_ISO
+      yAxisType !== ColumnDataType.NUMBER &&
+      yAxisType !== ColumnDataType.DATE_ISO
     ) {
       throw new BadRequestException(
-        `Column "${chartConfig.xAxis}" has type "${xAxisType}" — xAxis must be a number or an iso string`,
+        `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number or an iso string`,
       );
     }
 
@@ -166,17 +162,20 @@ export class ChartsService {
       return [];
     }
 
-    return csvUpload.charts.map((chart) => ({
-      name: chart.name,
-      chartType: chart.type,
-      xAxis: {
-        values: storedData[chart.xAxis].values,
-        dataType: storedData[chart.xAxis].type as ColumnDataType,
-      },
-      yAxis: {
-        values: storedData[chart.yAxis].values,
-        dataType: storedData[chart.yAxis].type as ColumnDataType,
-      },
-    }));
+    return csvUpload.charts.map((chart) => {
+      const xAxisValues = storedData[chart.xAxis].values;
+      const yAxisValues = storedData[chart.yAxis].values;
+
+      return {
+        name: chart.name,
+        chartType: chart.type,
+        xAxis: chart.xAxis,
+        yAxis: chart.yAxis,
+        data: xAxisValues.map((xValue, index) => ({
+          [chart.xAxis]: xValue,
+          [chart.yAxis]: yAxisValues[index],
+        })),
+      };
+    });
   }
 }
