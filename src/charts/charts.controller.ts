@@ -34,7 +34,7 @@ export class ChartsController {
     return this.chartsService.getChartBuilderInfo({ csvUploadId, userId });
   }
 
-  @Get(':csvUploadId/values')
+  @Get(':csvUploadId/chart-values')
   getCharts(
     @Param('csvUploadId') csvUploadId: string,
     @UserId() userId: string,
@@ -45,7 +45,7 @@ export class ChartsController {
     });
   }
 
-  @Post(':csvUploadId/build')
+  @Post(':csvUploadId/build-chart')
   @HttpCode(HttpStatus.CREATED)
   buildCharts(
     @Param('csvUploadId') csvUploadId: string,
@@ -59,20 +59,27 @@ export class ChartsController {
     });
   }
 
-  @Patch(':csvUploadId/chart-meta/:chartMetaDataId')
+  @Patch(':chartMetaDataId')
   @HttpCode(HttpStatus.OK)
   updateChartMetadata(
-    @Param('csvUploadId') csvUploadId: string,
     @Param('chartMetaDataId') chartMetaDataId: string,
     @Body() dto: ChartConfigDto,
     @UserId() userId: string,
   ) {
     return this.chartsService.updateChartMetadata({
-      csvUploadId,
       chartMetaDataId,
       userId,
       chartConfig: dto,
     });
+  }
+
+  @Delete(':chartMetaDataId')
+  @HttpCode(HttpStatus.OK)
+  deleteChart(
+    @Param('chartMetaDataId') chartMetaDataId: string,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.deleteChart({ chartMetaDataId, userId });
   }
 
   @Throttle({ chat: { ttl: 60_000, limit: 10 } })
@@ -96,14 +103,5 @@ export class ChartsController {
     @UserId() userId: string,
   ) {
     return this.chartsService.getChatMessages({ chartMetaDataId, userId });
-  }
-
-  @Delete(':chartMetaDataId')
-  @HttpCode(HttpStatus.OK)
-  deleteChart(
-    @Param('chartMetaDataId') chartMetaDataId: string,
-    @UserId() userId: string,
-  ) {
-    return this.chartsService.deleteChart({ chartMetaDataId, userId });
   }
 }

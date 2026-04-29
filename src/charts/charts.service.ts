@@ -217,48 +217,42 @@ export class ChartsService {
   }
 
   async updateChartMetadata({
-    csvUploadId,
     chartMetaDataId,
     userId,
     chartConfig,
   }: {
-    csvUploadId: string;
     chartMetaDataId: string;
     userId: string;
     chartConfig: ChartConfigDto;
   }): Promise<{ id: string }> {
-    const csvUpload = await this.prisma.csvUpload.findUnique({
-      where: { id: csvUploadId },
-      select: {
-        userId: true,
-        columnsMetaData: { select: { columnName: true, dataType: true } },
-        csvRows: { select: { rowData: true } },
-      },
-    });
-
-    if (!csvUpload) {
-      throw new NotFoundException(`CsvUpload ${csvUploadId} not found`);
-    }
-
-    if (csvUpload.userId !== userId) {
-      throw new ForbiddenException('You do not have access to this CSV upload');
-    }
-
     const chartMetaData = await this.prisma.chartMetaData.findUnique({
       where: { id: chartMetaDataId },
+      select: {
+        csvUploadId: true,
+        xAxis: true,
+        yAxis: true,
+        openAiFileId: true,
+        csvUpload: {
+          select: {
+            userId: true,
+            columnsMetaData: { select: { columnName: true, dataType: true } },
+            csvRows: { select: { rowData: true } },
+          },
+        },
+      },
     });
 
     if (!chartMetaData) {
       throw new NotFoundException(`ChartMetaData ${chartMetaDataId} not found`);
     }
 
-    if (chartMetaData.csvUploadId !== csvUploadId) {
+    if (chartMetaData.csvUpload.userId !== userId) {
       throw new ForbiddenException(
-        'ChartMetaData does not belong to this CSV upload',
+        `You do not have permission to update this chart`,
       );
     }
 
-    const availableColumns = csvUpload.columnsMetaData.map(
+    const availableColumns = chartMetaData.csvUpload.columnsMetaData.map(
       (col) => col.columnName,
     );
 
@@ -277,7 +271,7 @@ export class ChartsService {
         `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
       );
     }
-    const yAxisColumn = csvUpload.columnsMetaData.find(
+    const yAxisColumn = chartMetaData.csvUpload.columnsMetaData.find(
       (col) => col.columnName === chartConfig.yAxis,
     );
     const yAxisType = yAxisColumn?.dataType;
@@ -294,7 +288,7 @@ export class ChartsService {
     let newOpenAiFileId: string | undefined;
     if (axesChanged) {
       newOpenAiFileId = await this.uploadChartDataToOpenAi({
-        csvRows: csvUpload.csvRows,
+        csvRows: chartMetaData.csvUpload.csvRows,
         xAxis: chartConfig.xAxis,
         yAxis: chartConfig.yAxis,
       });
