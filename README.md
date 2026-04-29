@@ -16,6 +16,7 @@ JWT_ACCESS_SECRET=your-access-secret
 JWT_REFRESH_SECRET=your-refresh-secret
 CORS_ORIGIN="http://localhost:5173"
 OPENAI_API_KEY="sk-proj-xxxx"
+PORT=3000
 ```
 
 ## Setup
@@ -54,13 +55,13 @@ bunx prisma studio         # open Prisma Studio GUI
 
 Public endpoints (no token required). Both return `{ accessToken, role }` in the response body and set a `refreshToken` `httpOnly` cookie.
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/auth/sign-up` | Public | Register a new user |
-| POST | `/auth/sign-in` | Public | Sign in and receive tokens |
-| POST | `/auth/refresh` | Public | Rotate access token via refresh cookie |
-| GET | `/auth/me` | JWT | Return the current user's profile |
-| POST | `/auth/sign-out` | JWT | Clear the refresh token cookie |
+| Method | Path             | Auth   | Description                            |
+| ------ | ---------------- | ------ | -------------------------------------- |
+| POST   | `/auth/sign-up`  | Public | Register a new user                    |
+| POST   | `/auth/sign-in`  | Public | Sign in and receive tokens             |
+| POST   | `/auth/refresh`  | Public | Rotate access token via refresh cookie |
+| GET    | `/auth/me`       | JWT    | Return the current user's profile      |
+| POST   | `/auth/sign-out` | JWT    | Clear the refresh token cookie         |
 
 > Auth endpoints are rate-limited: 10 requests per minute per IP.
 
@@ -68,11 +69,11 @@ Public endpoints (no token required). Both return `{ accessToken, role }` in the
 
 Requires JWT + `USER` role.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/csv-upload` | Upload a CSV file (multipart `file` field) |
-| GET | `/csv-upload` | List all CSV uploads owned by the current user |
-| DELETE | `/csv-upload/:id` | Delete a CSV upload and all its charts |
+| Method | Path              | Description                                    |
+| ------ | ----------------- | ---------------------------------------------- |
+| POST   | `/csv-upload`     | Upload a CSV file (multipart `file` field)     |
+| GET    | `/csv-upload`     | List all CSV uploads owned by the current user |
+| DELETE | `/csv-upload/:id` | Delete a CSV upload and all its charts         |
 
 The upload endpoint parses the CSV, infers column data types (`TEXT`, `NUMBER`, `DATE_ISO`), and stores every row as JSON in the database.
 
@@ -80,15 +81,15 @@ The upload endpoint parses the CSV, infers column data types (`TEXT`, `NUMBER`, 
 
 Requires JWT + `USER` role.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/chart/:csvUploadId/meta` | Return available x/y axis columns for the chart builder |
-| GET | `/chart/:csvUploadId/chart-values` | Return all saved charts with their data points |
-| POST | `/chart/:csvUploadId/build-chart` | Create a new chart for a CSV upload |
-| PATCH | `/chart/:chartMetaDataId` | Update an existing chart's configuration |
-| DELETE | `/chart/:chartMetaDataId` | Delete a chart |
-| GET | `/chart/:chartMetaDataId/chat` | Retrieve chat message history for a chart |
-| POST | `/chart/:chartMetaDataId/chat` | Send a message to the AI assistant about the chart |
+| Method | Path                               | Description                                             |
+| ------ | ---------------------------------- | ------------------------------------------------------- |
+| GET    | `/chart/:csvUploadId/meta`         | Return available x/y axis columns for the chart builder |
+| GET    | `/chart/:csvUploadId/chart-values` | Return all saved charts with their data points          |
+| POST   | `/chart/:csvUploadId/build-chart`  | Create a new chart for a CSV upload                     |
+| PATCH  | `/chart/:chartMetaDataId`          | Update an existing chart's configuration                |
+| DELETE | `/chart/:chartMetaDataId`          | Delete a chart                                          |
+| GET    | `/chart/:chartMetaDataId/chat`     | Retrieve chat message history for a chart               |
+| POST   | `/chart/:chartMetaDataId/chat`     | Send a message to the AI assistant about the chart      |
 
 Supported chart types: `BAR`, `LINE`, `PIE`. The y-axis must be a `NUMBER` column.
 
