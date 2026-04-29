@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ChartsService } from './charts.service';
 import { ChartConfigDto } from './dto/build-charts.dto';
 import { SendChatMessageDto } from './dto/send-chat-message.dto';
@@ -70,6 +71,7 @@ export class ChartsController {
     });
   }
 
+  @Throttle({ chat: { ttl: 60_000, limit: 10 } })
   @Post(':chartMetaDataId/chat')
   @HttpCode(HttpStatus.CREATED)
   sendChatMessage(
