@@ -14,11 +14,13 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CsvUploadService } from './csv-upload.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../guards/roles.decorator';
 import { UserId } from '../guards/user-id.decorator';
+import { Role } from '../generated/prisma/client';
 
-@UseGuards(JwtAuthGuard)
-@Roles('USER')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.USER)
 @Controller('csv-upload')
 export class CsvUploadController {
   constructor(private readonly csvUploadService: CsvUploadService) {}

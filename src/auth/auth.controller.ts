@@ -18,6 +18,8 @@ import { Role } from '../generated/prisma/client';
 import { Public } from '../guards/public.decorator';
 import { UserId } from '../guards/user-id.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../guards/roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -46,7 +48,8 @@ export class AuthController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.USER, Role.ADMIN)
   @HttpCode(HttpStatus.OK)
   getMe(@UserId() userId: string) {
     return this.authService.getMe({ userId });

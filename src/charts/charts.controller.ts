@@ -16,8 +16,12 @@ import { ChartConfigDto } from './dto/build-charts.dto';
 import { SendChatMessageDto } from './dto/send-chat-message.dto';
 import { UserId } from '../guards/user-id.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { Role } from '../generated/prisma/enums';
+import { Roles } from '../guards/roles.decorator';
+import { RolesGuard } from '../guards/roles.guard';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.USER)
 @Controller('chart')
 export class ChartsController {
   constructor(private readonly chartsService: ChartsService) {}
