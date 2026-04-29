@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { ChartsModule } from '../charts/charts.module';
 import { CsvUploadController } from './csv-upload.controller';
 import { CsvUploadService } from './csv-upload.service';
 
 @Module({
   imports: [
+    ChartsModule,
     MulterModule.register({
       storage: memoryStorage(),
       limits: {

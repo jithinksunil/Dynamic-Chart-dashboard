@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ColumnDataType } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ChartsService } from '../charts/charts.service';
 
 type CsvValue = string | number | Date;
 type CsvColumns = Record<string, ColumnDataType>;
@@ -57,13 +58,15 @@ function parseValueAs({
     return parsedDate;
   }
 
-  // text: always keep as string, even if the value looks like a number
   return raw;
 }
 
 @Injectable()
 export class CsvUploadService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chartsService: ChartsService,
+  ) {}
 
   async upload({
     buffer,
@@ -120,6 +123,7 @@ export class CsvUploadService {
       throw new ForbiddenException('You do not have access to this CSV upload');
     }
 
+    await this.chartsService.deleteOpenAiFilesForCsvUpload({ csvUploadId: id });
     await this.prisma.csvUpload.delete({ where: { id } });
   }
 

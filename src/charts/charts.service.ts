@@ -301,7 +301,10 @@ export class ChartsService {
   }): Promise<void> {
     const chart = await this.prisma.chartMetaData.findUnique({
       where: { id: chartMetaDataId },
-      select: { csvUpload: { select: { userId: true } } },
+      select: {
+        openAiFileId: true,
+        csvUpload: { select: { userId: true } },
+      },
     });
 
     if (!chart) {
@@ -313,6 +316,39 @@ export class ChartsService {
     }
 
     await this.prisma.chartMetaData.delete({ where: { id: chartMetaDataId } });
+
+    if (chart.openAiFileId) {
+      await this.deleteOpenAiFile({ fileId: chart.openAiFileId });
+    }
+  }
+
+  async deleteOpenAiFilesForCsvUpload({
+    csvUploadId,
+  }: {
+    csvUploadId: string;
+  }): Promise<void> {
+    const charts = await this.prisma.chartMetaData.findMany({
+      where: { csvUploadId, openAiFileId: { not: null } },
+      select: { openAiFileId: true },
+    });
+
+    await Promise.allSettled(
+      charts.map((chart) =>
+        this.deleteOpenAiFile({ fileId: chart.openAiFileId as string }),
+      ),
+    );
+  }
+
+  private async deleteOpenAiFile({
+    fileId,
+  }: {
+    fileId: string;
+  }): Promise<void> {
+    try {
+      await this.openai.files.delete(fileId);
+    } catch {
+      console.error(`Failed to delete OpenAI file ${fileId}`);
+    }
   }
 
   async getChatMessages({
