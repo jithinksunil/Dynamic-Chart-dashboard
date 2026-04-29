@@ -41,16 +41,40 @@ model User {
 }
 
 model CsvUpload {
-  id        String          @id @default(uuid())
-  fileName  String
-  data      Json
-  createdAt DateTime        @default(now())
-  userId    String
-  charts    ChartMetaData[]
-  user      User            @relation(fields: [userId], references: [id])
+  id              String           @id @default(uuid())
+  fileName        String
+  userId          String
+  charts          ChartMetaData[]
+  user            User             @relation(fields: [userId], references: [id])
+  csvRows         CSVRow[]
+  columnsMetaData ColumnMetaData[]
+  createdAt       DateTime         @default(now())
 
   @@index([userId, createdAt])
   @@map("csv_upload")
+}
+
+model ColumnMetaData {
+  id          Int            @id @default(autoincrement())
+  columnName  String
+  dataType    ColumnDataType
+  csvUpload   CsvUpload      @relation(fields: [csvUploadId], references: [id])
+  csvUploadId String
+  createdAt   DateTime       @default(now())
+
+  @@index([csvUploadId])
+  @@map("column_meta_data")
+}
+
+model CSVRow {
+  id          Int       @id @default(autoincrement())
+  rowData     Json
+  csvUpload   CsvUpload @relation(fields: [csvUploadId], references: [id])
+  csvUploadId String
+  createdAt   DateTime  @default(now())
+
+  @@index([csvUploadId])
+  @@map("csv_row")
 }
 
 model ChartMetaData {

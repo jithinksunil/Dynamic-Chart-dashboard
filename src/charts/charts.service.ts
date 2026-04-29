@@ -14,12 +14,6 @@ import { zodTextFormat } from 'openai/helpers/zod.mjs';
 import { z } from 'zod';
 
 type SerializableCsvValue = string | number;
-type SerializableCsvColumn = {
-  type: string;
-  values: SerializableCsvValue[];
-};
-type StoredCsvData = Record<string, SerializableCsvColumn>;
-
 type ChartDetail = {
   id: string;
   name: string;
@@ -62,7 +56,12 @@ export class ChartsService {
   }> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
-      select: { userId: true, data: true },
+      select: {
+        userId: true,
+        columnsMetaData: {
+          select: { columnName: true, dataType: true },
+        },
+      },
     });
 
     if (!csvUpload) {
@@ -73,20 +72,18 @@ export class ChartsService {
       throw new ForbiddenException('You do not have access to this CSV upload');
     }
 
-    const storedData = csvUpload.data as StoredCsvData;
-
-    const availableXAxises = Object.entries(storedData).map(
-      ([columnName, column]) => ({
+    const availableXAxises = csvUpload.columnsMetaData.map(
+      ({ columnName, dataType }) => ({
         columnName,
-        type: column.type as ColumnDataType,
+        type: dataType,
       }),
     );
 
-    const availableYAxises = Object.entries(storedData)
-      .filter(([, column]) => ColumnDataType.NUMBER === column.type)
-      .map(([columnName, column]) => ({
+    const availableYAxises = csvUpload.columnsMetaData
+      .filter(({ dataType }) => ColumnDataType.NUMBER === dataType)
+      .map(({ columnName, dataType }) => ({
         columnName,
-        type: column.type as ColumnDataType,
+        type: dataType,
       }));
 
     return { availableXAxises, availableYAxises };
@@ -103,6 +100,10 @@ export class ChartsService {
   }): Promise<{ id: string }> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
+      select: {
+        columnsMetaData: { select: { columnName: true, dataType: true } },
+        userId: true,
+      },
     });
 
     if (!csvUpload) {
@@ -113,25 +114,33 @@ export class ChartsService {
       throw new ForbiddenException('You do not have access to this CSV upload');
     }
 
-    const storedData = csvUpload.data as StoredCsvData;
-    const availableColumns = Object.keys(storedData);
-
     if (chartConfig.xAxis === chartConfig.yAxis) {
       throw new BadRequestException(
         `xAxis and yAxis must be different columns, both are "${chartConfig.xAxis}"`,
       );
     }
-    if (!availableColumns.includes(chartConfig.xAxis)) {
+    if (
+      !csvUpload.columnsMetaData
+        .map(({ columnName }) => columnName)
+        .includes(chartConfig.xAxis)
+    ) {
       throw new BadRequestException(
-        `Column "${chartConfig.xAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+        `Column "${chartConfig.xAxis}" does not exist in the CSV. Available columns: ${csvUpload.columnsMetaData.map((col) => col.columnName).join(', ')}`,
       );
     }
-    if (!availableColumns.includes(chartConfig.yAxis)) {
+    if (
+      !csvUpload.columnsMetaData
+        .map(({ columnName }) => columnName)
+        .includes(chartConfig.yAxis)
+    ) {
       throw new BadRequestException(
-        `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
+        `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${csvUpload.columnsMetaData.map((col) => col.columnName).join(', ')}`,
       );
     }
-    const yAxisType = storedData[chartConfig.yAxis].type;
+    const yAxisColumn = csvUpload.columnsMetaData.find(
+      (col) => col.columnName === chartConfig.yAxis,
+    );
+    const yAxisType = yAxisColumn?.dataType;
     if (yAxisType !== ColumnDataType.NUMBER) {
       throw new BadRequestException(
         `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number`,
@@ -161,7 +170,12 @@ export class ChartsService {
   }): Promise<ChartDetail[]> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
-      include: { charts: true },
+      select: {
+        charts: true,
+        columnsMetaData: { select: { columnName: true, dataType: true } },
+        csvRows: { select: { rowData: true } },
+        userId: true,
+      },
     });
 
     if (!csvUpload) {
@@ -172,25 +186,24 @@ export class ChartsService {
       throw new ForbiddenException('You do not have access to this CSV upload');
     }
 
-    const storedData = csvUpload.data as StoredCsvData;
     if (csvUpload.charts.length === 0) {
       return [];
     }
 
     return csvUpload.charts.map((chart) => {
-      const xAxisValues = storedData[chart.xAxis].values;
-      const yAxisValues = storedData[chart.yAxis].values;
-
       return {
         id: chart.id,
         name: chart.name,
         chartType: chart.type,
         xAxis: chart.xAxis,
         yAxis: chart.yAxis,
-        data: xAxisValues.map((xValue, index) => ({
-          [chart.xAxis]: xValue,
-          [chart.yAxis]: yAxisValues[index],
-        })),
+        data: csvUpload.csvRows.map((row) => {
+          const rowData = row.rowData as Record<string, SerializableCsvValue>;
+          return {
+            [chart.xAxis]: rowData[chart.xAxis],
+            [chart.yAxis]: rowData[chart.yAxis],
+          };
+        }),
       };
     });
   }
@@ -208,6 +221,10 @@ export class ChartsService {
   }): Promise<{ id: string }> {
     const csvUpload = await this.prisma.csvUpload.findUnique({
       where: { id: csvUploadId },
+      select: {
+        userId: true,
+        columnsMetaData: { select: { columnName: true, dataType: true } },
+      },
     });
 
     if (!csvUpload) {
@@ -232,8 +249,9 @@ export class ChartsService {
       );
     }
 
-    const storedData = csvUpload.data as StoredCsvData;
-    const availableColumns = Object.keys(storedData);
+    const availableColumns = csvUpload.columnsMetaData.map(
+      (col) => col.columnName,
+    );
 
     if (chartConfig.xAxis === chartConfig.yAxis) {
       throw new BadRequestException(
@@ -250,7 +268,10 @@ export class ChartsService {
         `Column "${chartConfig.yAxis}" does not exist in the CSV. Available columns: ${availableColumns.join(', ')}`,
       );
     }
-    const yAxisType = storedData[chartConfig.yAxis].type;
+    const yAxisColumn = csvUpload.columnsMetaData.find(
+      (col) => col.columnName === chartConfig.yAxis,
+    );
+    const yAxisType = yAxisColumn?.dataType;
     if (yAxisType !== ColumnDataType.NUMBER) {
       throw new BadRequestException(
         `Column "${chartConfig.yAxis}" has type "${yAxisType}" — yAxis must be a number`,
@@ -320,7 +341,12 @@ export class ChartsService {
         xAxis: true,
         yAxis: true,
         openAiFileId: true,
-        csvUpload: { select: { userId: true, data: true } },
+        csvUpload: {
+          select: {
+            userId: true,
+            csvRows: { select: { rowData: true } },
+          },
+        },
       },
     });
 
@@ -336,13 +362,13 @@ export class ChartsService {
     const openAiFileId: string = await (async (): Promise<string> => {
       if (rawOpenAiFileId) return rawOpenAiFileId;
 
-      const storedData = chart.csvUpload.data as StoredCsvData;
-      const xValues = storedData[chart.xAxis]?.values ?? [];
-      const yValues = storedData[chart.yAxis]?.values ?? [];
-      const chartDataPoints = xValues.map((xValue, xIndex) => ({
-        [chart.xAxis]: xValue,
-        [chart.yAxis]: yValues[xIndex],
-      }));
+      const chartDataPoints = chart.csvUpload.csvRows.map((row) => {
+        const rowData = row.rowData as Record<string, SerializableCsvValue>;
+        return {
+          [chart.xAxis]: rowData[chart.xAxis],
+          [chart.yAxis]: rowData[chart.yAxis],
+        };
+      });
 
       const jsonBytes = Buffer.from(JSON.stringify(chartDataPoints));
       const jsonFile = new File([jsonBytes], 'chart_data.json', {

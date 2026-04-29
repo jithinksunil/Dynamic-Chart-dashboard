@@ -1,23 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ColumnDataType } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-const ColumnDataType = {
-  TEXT: 'TEXT',
-  NUMBER: 'NUMBER',
-  DATE_ISO: 'DATE_ISO',
-} as const;
-type ColumnDataType = (typeof ColumnDataType)[keyof typeof ColumnDataType];
-
 type CsvValue = string | number | Date;
-type CsvColumn = { type: ColumnDataType; values: CsvValue[] };
-type CsvColumns = Record<string, CsvColumn>;
-
-type SerializableCsvValue = string | number;
-type SerializableCsvColumn = {
-  type: ColumnDataType;
-  values: SerializableCsvValue[];
-};
-type SerializableCsvColumns = Record<string, SerializableCsvColumn>;
+type CsvColumns = Record<string, ColumnDataType>;
 
 // ISO 8601: date-only or datetime with optional time, offset, or Z
 const ISO_DATE_RE =
@@ -70,20 +56,6 @@ function parseValueAs({
   return raw;
 }
 
-function toSerializable(columns: CsvColumns): SerializableCsvColumns {
-  return Object.fromEntries(
-    Object.entries(columns).map(([header, column]) => [
-      header,
-      {
-        type: column.type,
-        values: column.values.map((value) =>
-          value instanceof Date ? value.toISOString() : value,
-        ),
-      },
-    ]),
-  );
-}
-
 @Injectable()
 export class CsvUploadService {
   constructor(private readonly prisma: PrismaService) {}
@@ -97,16 +69,32 @@ export class CsvUploadService {
     fileName: string;
     userId: string;
   }) {
-    const columns = this.parse({ buffer });
-    const data = toSerializable(columns);
+    const { headings, rows } = this.parse({ buffer });
 
     const csvUpload = await this.prisma.csvUpload.create({
-      data: { fileName, data, userId },
+      data: {
+        fileName,
+        userId,
+        csvRows: {
+          createMany: {
+            data: rows.map((row) => ({
+              rowData: row,
+            })),
+          },
+        },
+        columnsMetaData: {
+          createMany: {
+            data: Object.entries(headings).map(([header, type]) => ({
+              columnName: header,
+              dataType: type,
+            })),
+          },
+        },
+      },
     });
 
     return { csvUploadId: csvUpload.id };
   }
-
   async listUserCsvFiles({
     userId,
   }: {
@@ -119,7 +107,10 @@ export class CsvUploadService {
     });
   }
 
-  private parse({ buffer }: { buffer: Buffer }): CsvColumns {
+  private parse({ buffer }: { buffer: Buffer }): {
+    rows: Record<string, CsvValue>[];
+    headings: CsvColumns;
+  } {
     const text = buffer.toString('utf-8');
     const lines = text
       .split(/\r?\n/)
@@ -135,43 +126,45 @@ export class CsvUploadService {
     if (headers.length === 1) {
       throw new BadRequestException('CSV must contain more than one column');
     }
-    const columns: CsvColumns = Object.fromEntries(
-      headers.map((header) => [
-        header,
-        { type: ColumnDataType.TEXT, values: [] },
-      ]),
+    const headings: CsvColumns = Object.fromEntries(
+      headers.map((header) => [header, ColumnDataType.TEXT]),
     );
+
+    const rows: Record<string, CsvValue>[] = [];
 
     for (const [rowIndex, line] of lines.slice(1).entries()) {
       const values = line.split(',').map((cell) => cell.trim());
-      headers.forEach((header, colIndex) => {
-        const raw = values[colIndex];
-        if (raw === undefined) {
-          throw new BadRequestException(
-            `Row ${rowIndex + 1} has ${values.length} columns but expected ${headers.length} columns, values in columns "${headers.slice(values.length).join('", "')}" are missing`,
-          );
-        }
-        if (raw === '') {
-          throw new BadRequestException(
-            `Row ${rowIndex + 1}, column "${header}" must not be empty`,
-          );
-        }
+      const row = headers.reduce(
+        (rowObject: Record<string, CsvValue>, header, colIndex) => {
+          const raw = values[colIndex];
+          if (raw === undefined) {
+            throw new BadRequestException(
+              `Row ${rowIndex + 1} has ${values.length} columns but expected ${headers.length} columns, values in columns "${headers.slice(values.length).join('", "')}" are missing`,
+            );
+          }
+          if (raw === '') {
+            throw new BadRequestException(
+              `Row ${rowIndex + 1}, column "${header}" must not be empty`,
+            );
+          }
 
-        if (rowIndex === 0) {
-          columns[header].type = inferType(raw);
-        }
+          if (rowIndex === 0) {
+            headings[header] = inferType(raw);
+          }
 
-        columns[header].values.push(
-          parseValueAs({
+          rowObject[header] = parseValueAs({
             raw,
-            type: columns[header].type,
+            type: headings[header],
             rowIndex,
             header,
-          }),
-        );
-      });
+          });
+          return rowObject;
+        },
+        {},
+      );
+      rows.push(row);
     }
 
-    return columns;
+    return { rows, headings };
   }
 }
