@@ -518,7 +518,7 @@ export class ChartsService {
       throw new InternalServerErrorException('No response from AI agent');
     }
 
-    const [, agentMessage] = await this.prisma.$transaction([
+    const [, agentMessage] = await Promise.all([
       this.prisma.chatMessage.create({
         data: { content, role: Role.USER, chartMetaDataId },
       }),
