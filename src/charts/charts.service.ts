@@ -102,6 +102,7 @@ export class ChartsService {
       where: { id: csvUploadId },
       select: {
         columnsMetaData: { select: { columnName: true, dataType: true } },
+        csvRows: { select: { rowData: true } },
         userId: true,
       },
     });
@@ -147,6 +148,12 @@ export class ChartsService {
       );
     }
 
+    const openAiFileId = await this.uploadChartDataToOpenAi({
+      csvRows: csvUpload.csvRows,
+      xAxis: chartConfig.xAxis,
+      yAxis: chartConfig.yAxis,
+    });
+
     const savedRecord = await this.prisma.chartMetaData.create({
       data: {
         name: chartConfig.name,
@@ -154,6 +161,7 @@ export class ChartsService {
         xAxis: chartConfig.xAxis,
         yAxis: chartConfig.yAxis,
         csvUploadId,
+        openAiFileId,
       },
       select: { id: true },
     });
@@ -224,6 +232,7 @@ export class ChartsService {
       select: {
         userId: true,
         columnsMetaData: { select: { columnName: true, dataType: true } },
+        csvRows: { select: { rowData: true } },
       },
     });
 
@@ -278,6 +287,19 @@ export class ChartsService {
       );
     }
 
+    const axesChanged =
+      chartMetaData.xAxis !== chartConfig.xAxis ||
+      chartMetaData.yAxis !== chartConfig.yAxis;
+
+    let newOpenAiFileId: string | undefined;
+    if (axesChanged) {
+      newOpenAiFileId = await this.uploadChartDataToOpenAi({
+        csvRows: csvUpload.csvRows,
+        xAxis: chartConfig.xAxis,
+        yAxis: chartConfig.yAxis,
+      });
+    }
+
     const updatedRecord = await this.prisma.chartMetaData.update({
       where: { id: chartMetaDataId },
       data: {
@@ -285,9 +307,14 @@ export class ChartsService {
         type: chartConfig.chartType,
         xAxis: chartConfig.xAxis,
         yAxis: chartConfig.yAxis,
+        openAiFileId: newOpenAiFileId,
       },
       select: { id: true },
     });
+
+    if (axesChanged && chartMetaData.openAiFileId) {
+      await this.deleteOpenAiFile({ fileId: chartMetaData.openAiFileId });
+    }
 
     return { id: updatedRecord.id };
   }
@@ -337,6 +364,30 @@ export class ChartsService {
         this.deleteOpenAiFile({ fileId: chart.openAiFileId as string }),
       ),
     );
+  }
+
+  private async uploadChartDataToOpenAi({
+    csvRows,
+    xAxis,
+    yAxis,
+  }: {
+    csvRows: { rowData: unknown }[];
+    xAxis: string;
+    yAxis: string;
+  }): Promise<string> {
+    const dataPoints = csvRows.map((row) => {
+      const rowData = row.rowData as Record<string, SerializableCsvValue>;
+      return { [xAxis]: rowData[xAxis], [yAxis]: rowData[yAxis] };
+    });
+    const jsonBytes = Buffer.from(JSON.stringify(dataPoints));
+    const jsonFile = new File([jsonBytes], 'chart_data.json', {
+      type: 'application/json',
+    });
+    const uploadedFile = await this.openai.files.create({
+      file: jsonFile,
+      purpose: 'assistants',
+    });
+    return uploadedFile.id;
   }
 
   private async deleteOpenAiFile({
@@ -401,10 +452,7 @@ export class ChartsService {
         yAxis: true,
         openAiFileId: true,
         csvUpload: {
-          select: {
-            userId: true,
-            csvRows: { select: { rowData: true } },
-          },
+          select: { userId: true },
         },
       },
     });
@@ -417,34 +465,13 @@ export class ChartsService {
       throw new ForbiddenException('You do not have access to this chart');
     }
 
-    const rawOpenAiFileId: string | null = chart.openAiFileId;
-    const openAiFileId: string = await (async (): Promise<string> => {
-      if (rawOpenAiFileId) return rawOpenAiFileId;
+    if (!chart.openAiFileId) {
+      throw new InternalServerErrorException(
+        'Chart data file is not ready yet',
+      );
+    }
 
-      const chartDataPoints = chart.csvUpload.csvRows.map((row) => {
-        const rowData = row.rowData as Record<string, SerializableCsvValue>;
-        return {
-          [chart.xAxis]: rowData[chart.xAxis],
-          [chart.yAxis]: rowData[chart.yAxis],
-        };
-      });
-
-      const jsonBytes = Buffer.from(JSON.stringify(chartDataPoints));
-      const jsonFile = new File([jsonBytes], 'chart_data.json', {
-        type: 'application/json',
-      });
-      const uploadedFile = await this.openai.files.create({
-        file: jsonFile,
-        purpose: 'assistants',
-      });
-
-      await this.prisma.chartMetaData.update({
-        where: { id: chartMetaDataId },
-        data: { openAiFileId: uploadedFile.id },
-      });
-
-      return uploadedFile.id;
-    })();
+    const openAiFileId = chart.openAiFileId;
 
     const systemPrompt = [
       `You are a data analyst assistant. The user is viewing a ${chart.type} chart.`,
