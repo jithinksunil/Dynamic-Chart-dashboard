@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -48,5 +50,11 @@ export class CsvUploadController {
   @Get('/')
   listUserCsvFiles(@UserId() userId: string) {
     return this.csvUploadService.listUserCsvFiles({ userId });
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  deleteCsvUpload(@Param('id') id: string, @UserId() userId: string) {
+    return this.csvUploadService.deleteCsvUpload({ id, userId });
   }
 }

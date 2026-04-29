@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ColumnDataType } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -95,6 +100,29 @@ export class CsvUploadService {
 
     return { csvUploadId: csvUpload.id };
   }
+  async deleteCsvUpload({
+    id,
+    userId,
+  }: {
+    id: string;
+    userId: string;
+  }): Promise<void> {
+    const csvUpload = await this.prisma.csvUpload.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+
+    if (!csvUpload) {
+      throw new NotFoundException(`CsvUpload ${id} not found`);
+    }
+
+    if (csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this CSV upload');
+    }
+
+    await this.prisma.csvUpload.delete({ where: { id } });
+  }
+
   async listUserCsvFiles({
     userId,
   }: {

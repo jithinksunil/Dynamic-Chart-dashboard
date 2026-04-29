@@ -292,6 +292,29 @@ export class ChartsService {
     return { id: updatedRecord.id };
   }
 
+  async deleteChart({
+    chartMetaDataId,
+    userId,
+  }: {
+    chartMetaDataId: string;
+    userId: string;
+  }): Promise<void> {
+    const chart = await this.prisma.chartMetaData.findUnique({
+      where: { id: chartMetaDataId },
+      select: { csvUpload: { select: { userId: true } } },
+    });
+
+    if (!chart) {
+      throw new NotFoundException(`Chart ${chartMetaDataId} not found`);
+    }
+
+    if (chart.csvUpload.userId !== userId) {
+      throw new ForbiddenException('You do not have access to this chart');
+    }
+
+    await this.prisma.chartMetaData.delete({ where: { id: chartMetaDataId } });
+  }
+
   async getChatMessages({
     chartMetaDataId,
     userId,

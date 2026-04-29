@@ -58,7 +58,7 @@ model ColumnMetaData {
   id          Int            @id @default(autoincrement())
   columnName  String
   dataType    ColumnDataType
-  csvUpload   CsvUpload      @relation(fields: [csvUploadId], references: [id])
+  csvUpload   CsvUpload      @relation(fields: [csvUploadId], references: [id], onDelete: Cascade)
   csvUploadId String
   createdAt   DateTime       @default(now())
 
@@ -69,7 +69,7 @@ model ColumnMetaData {
 model CSVRow {
   id          Int       @id @default(autoincrement())
   rowData     Json
-  csvUpload   CsvUpload @relation(fields: [csvUploadId], references: [id])
+  csvUpload   CsvUpload @relation(fields: [csvUploadId], references: [id], onDelete: Cascade)
   csvUploadId String
   createdAt   DateTime  @default(now())
 
@@ -83,7 +83,7 @@ model ChartMetaData {
   xAxis        String
   yAxis        String
   name         String
-  csvUpload    CsvUpload     @relation(fields: [csvUploadId], references: [id])
+  csvUpload    CsvUpload     @relation(fields: [csvUploadId], references: [id], onDelete: Cascade)
   csvUploadId  String
   Chat         ChatMessage[]
   createdAt    DateTime      @default(now())
@@ -97,7 +97,7 @@ model ChatMessage {
   id              String        @id @default(uuid())
   content         String
   role            Role
-  chartMetaData   ChartMetaData @relation(fields: [chartMetaDataId], references: [id])
+  chartMetaData   ChartMetaData @relation(fields: [chartMetaDataId], references: [id], onDelete: Cascade)
   chartMetaDataId String
   createdAt       DateTime      @default(now())
 

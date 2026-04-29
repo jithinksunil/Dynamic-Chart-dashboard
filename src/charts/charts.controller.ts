@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -89,5 +90,14 @@ export class ChartsController {
     @UserId() userId: string,
   ) {
     return this.chartsService.getChatMessages({ chartMetaDataId, userId });
+  }
+
+  @Delete(':chartMetaDataId')
+  @HttpCode(HttpStatus.OK)
+  deleteChart(
+    @Param('chartMetaDataId') chartMetaDataId: string,
+    @UserId() userId: string,
+  ) {
+    return this.chartsService.deleteChart({ chartMetaDataId, userId });
   }
 }
